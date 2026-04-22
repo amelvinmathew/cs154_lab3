@@ -110,7 +110,7 @@ with pyrtl.conditional_assignment:
 
 ## WRITE REGISTER mux
 # create the mux to choose among rd and rt for the write register
-wr_reg = pyrtl.select(reg_dst, rt, rd)
+wr_reg = pyrtl.mux(reg_dst, rt, rd)
 
 ## READ REGISTER VALUES from the register file
 # read the values of rs and rt registers from the register file
@@ -159,7 +159,7 @@ with pyrtl.conditional_assignment:
 # Create the mux to select between ALU result and data memory read.
 # Writeback the selected value to the register file in the 
 # appropriate write register 
-wb_data = pyrtl.select(mem_to_reg, alu_out, d_mem[alu_out])
+wb_data = pyrtl.mux(mem_to_reg, alu_out, d_mem[alu_out])
 
 with pyrtl.conditional_assignment:
     with reg_write:
@@ -170,8 +170,9 @@ with pyrtl.conditional_assignment:
 # the PC in the case of a branch instruction. 
 pc_next = pc + 1
 branch_next = pc_next + imm_se
+do_branch = branch & alu_zero
 
-pc.next <<= pyrtl.select(branch & alu_zero, pc_next, branch_next)
+pc.next <<= pyrtl.mux(do_branch, pc_next, branch_next)
 
 if __name__ == '__main__':
 
@@ -240,7 +241,7 @@ if __name__ == '__main__':
     })
 
     # Run for an arbitrarily large number of cycles.
-    for cycle in range(10):
+    for cycle in range(500):
         sim.step({})
 
     # Use render_trace() to debug if your code doesn't work.
