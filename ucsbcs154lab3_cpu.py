@@ -7,9 +7,13 @@ import pyrtl
 
 
 # Initialize your memblocks here: 
-i_mem = pyrtl.MemBlock(...)
-d_mem = pyrtl.MemBlock(...)
-rf    = pyrtl.MemBlock(...)
+i_mem = pyrtl.MemBlock(bitwidth=32, addrwidth=32, name='i_mem')
+d_mem = pyrtl.MemBlock(bitwidth=32, addrwidth=32, name='d_mem')
+rf    = pyrtl.MemBlock(bitwidth=32, addrwidth=5, name='rf')
+
+pc = pyrtl.Register(bitwidth=32, name='pc')
+
+instr = i_mem[pc]
 
 # When working on large designs, such as this CPU implementation, it is
 # useful to partition your design into smaller, reusable, hardware
@@ -19,41 +23,99 @@ rf    = pyrtl.MemBlock(...)
 
 ## DECODER
 # decode the instruction
+op = instr[26:32]
+rs = instr[21:26]
+rt = instr[16:21]
+rd = instr[11:16]
+imm = instr[0:16]
+funct = instr[0:6]
 
 ## CONTROLLER
 # define control signals for the following instructions
 # add, and, addi, lui, ori, slt, lw, sw, beq
+is_rtype = op == 0
+is_add  = is_rtype & (funct == 32)
+is_and  = is_rtype & (funct == 36)
+is_slt  = is_rtype & (funct == 42)
+is_addi = op == 8
+is_lui  = op == 15
+is_ori  = op == 13
+is_lw   = op == 35
+is_sw   = op == 43
+is_beq  = op == 4
+
+reg_dst
+branch
+mem_to_reg
+alu_op
+mem_write
+alu_src
+reg_write
 
 ## WRITE REGISTER mux
 # create the mux to choose among rd and rt for the write register
+wr_reg = pyrtl.select(reg_dst, rt, rd)
 
 ## READ REGISTER VALUES from the register file
 # read the values of rs and rt registers from the register file
+rs_val = rf[rs]
+rt_val = rf[rt]
 
 ## ALU INPUTS
 # define the ALU inputs after reading values of rs and rt registers from
 # the register file
 # Hint: Think about ALU inputs for instructions that use immediate values 
+alu_a = rs_val
+alu_b = pyrtl.mux(alu_src, rt_val, imm.sign_extended(32), imm.zero_extended(32))
 
 ## FIND ALU OUTPUT
 # find what the ALU outputs are for the following instructions:
 # add, and, addi, lui, ori, slt, lw, sw, beq
 # Hint: you want to find both ALU result and zero. Refer the figure in the
 # lab document
+alu_out = pyrtl.WireVector(bitwidth=32)
+alu_zero = pyrtl.WireVector(bitwidth=1)
+
+with pyrtl.conditional_assignment:
+    with alu_op == 0:
+        alu_out |= alu_a + alu_b
+    with alu_op == 1:
+        alu_out |= alu_a & alu_b
+    with alu_op == 2:
+        alu_out |= alu_b << 16 
+    with alu_op == 3:
+        alu_out |= alu_a | alu_b  
+    with alu_op == 4:
+        alu_out |= alu_a < alu_b  
+    with alu_op == 5:
+        alu_out |= alu_a - alu_b  
+
+alu_zero <<= (alu_out == 0)
 
 ## DATA MEMORY WRITE
 # perform the write operation in the data memory. Think about which 
 # instructions will need to write to the data memory
+with pyrtl.conditional_assignment:
+    with mem_write:
+        d_mem[alu_out] |= rt_val
 
 ## REGISTER WRITEBACK
 # Create the mux to select between ALU result and data memory read.
 # Writeback the selected value to the register file in the 
 # appropriate write register 
+wb_data = pyrtl.select(mem_to_reg, alu_out, d_mem[alu_out])
+
+with pyrtl.conditional_assignment:
+    with reg_write:
+        rf[wr_reg] |= wb_data
 
 ## PC UPDATE
 # finally update the program counter. Pay special attention when updating 
 # the PC in the case of a branch instruction. 
+pc_next = pc + 1
+branch_next = pc_next + imm_se
 
+pc.next <<= pyrtl.select(branch & alu_zero, pc_next, branch_next)
 
 if __name__ == '__main__':
 
