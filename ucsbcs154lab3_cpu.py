@@ -30,27 +30,45 @@ rd = instr[11:16]
 imm = instr[0:16]
 funct = instr[0:6]
 
+imm_se = imm.sign_extended(32)
+imm_ze = imm.zero_extended(32)
+
 ## CONTROLLER
 # define control signals for the following instructions
 # add, and, addi, lui, ori, slt, lw, sw, beq
 is_rtype = op == 0
-is_add  = is_rtype & (funct == 32)
-is_and  = is_rtype & (funct == 36)
-is_slt  = is_rtype & (funct == 42)
-is_addi = op == 8
-is_lui  = op == 15
-is_ori  = op == 13
-is_lw   = op == 35
-is_sw   = op == 43
-is_beq  = op == 4
+is_add   = is_rtype & (funct == 32)
+is_and   = is_rtype & (funct == 36)
+is_slt   = is_rtype & (funct == 42)
+is_addi  = op == 8
+is_lui   = op == 15
+is_ori   = op == 13
+is_lw    = op == 35
+is_sw    = op == 43
+is_beq   = op == 4
 
-reg_dst
-branch
-mem_to_reg
-alu_op
-mem_write
-alu_src
-reg_write
+reg_dst = is_rtype
+branch = is_beq
+mem_to_reg = is_lw
+alu_op = pyrtl.WireVector(bitwidth=3)
+mem_write = is_sw
+alu_src = is_addi | is_lui | is_ori | is_lw | is_sw
+reg_write = is_rtype | is_addi | is_lui | is_ori | is_lw
+
+with pyrtl.conditional_assignment:
+    with is_add | is_addi | is_lw | is_sw:
+        alu_op |= 0
+    with is_and:
+        alu_op |= 1
+    with is_lui:
+        alu_op |= 2
+    with is_ori:
+        alu_op |= 3
+    with is_slt:
+        alu_op |= 4
+    with is_beq:
+        alu_op |= 5
+
 
 ## WRITE REGISTER mux
 # create the mux to choose among rd and rt for the write register
@@ -66,7 +84,7 @@ rt_val = rf[rt]
 # the register file
 # Hint: Think about ALU inputs for instructions that use immediate values 
 alu_a = rs_val
-alu_b = pyrtl.mux(alu_src, rt_val, imm.sign_extended(32), imm.zero_extended(32))
+alu_b = pyrtl.mux(alu_src, rt_val, imm_se, imm_ze)
 
 ## FIND ALU OUTPUT
 # find what the ALU outputs are for the following instructions:
