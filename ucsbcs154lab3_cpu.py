@@ -8,8 +8,8 @@ import pyrtl
 
 # Initialize your memblocks here: 
 i_mem = pyrtl.MemBlock(bitwidth=32, addrwidth=32, name='i_mem')
-d_mem = pyrtl.MemBlock(bitwidth=32, addrwidth=32, name='d_mem')
-rf    = pyrtl.MemBlock(bitwidth=32, addrwidth=5, name='rf')
+d_mem = pyrtl.MemBlock(bitwidth=32, addrwidth=32, name='d_mem', asynchronous=True)
+rf    = pyrtl.MemBlock(bitwidth=32, addrwidth=5, name='rf', asynchronous=True)
 
 pc = pyrtl.Register(bitwidth=32, name='pc')
 
@@ -47,13 +47,31 @@ is_lw    = op == 35
 is_sw    = op == 43
 is_beq   = op == 4
 
-reg_dst = is_rtype
-branch = is_beq
-mem_to_reg = is_lw
-alu_op = pyrtl.WireVector(bitwidth=3)
-mem_write = is_sw
-alu_src = is_addi | is_lui | is_ori | is_lw | is_sw
-reg_write = is_rtype | is_addi | is_lui | is_ori | is_lw
+reg_dst     = pyrtl.WireVector(bitwidth=1, name='reg_dst')
+branch      = pyrtl.WireVector(bitwidth=1, name='branch')
+mem_to_reg  = pyrtl.WireVector(bitwidth=1, name='mem_to_reg')
+alu_op      = pyrtl.WireVector(bitwidth=3, name='alu_op')
+mem_write   = pyrtl.WireVector(bitwidth=1, name='mem_write')
+alu_src     = pyrtl.WireVector(bitwidth=2, name='alu_src')
+reg_write   = pyrtl.WireVector(bitwidth=1, name='reg_write')
+
+with pyrtl.conditional_assignment:
+    with is_rtype:
+        reg_dst |= 1
+    with pyrtl.otherwise:
+        reg_dst |= 0
+
+with pyrtl.conditional_assignment:
+    with is_beq:
+        branch |= 1
+    with pyrtl.otherwise:
+        branch |= 0
+
+with pyrtl.conditional_assignment:
+    with is_lw:
+        mem_to_reg |= 1
+    with pyrtl.otherwise:
+        mem_to_reg |= 0
 
 with pyrtl.conditional_assignment:
     with is_add | is_addi | is_lw | is_sw:
@@ -68,6 +86,26 @@ with pyrtl.conditional_assignment:
         alu_op |= 4
     with is_beq:
         alu_op |= 5
+
+with pyrtl.conditional_assignment:
+    with is_sw:
+        mem_write |= 1
+    with pyrtl.otherwise:
+        mem_write |= 0
+
+with pyrtl.conditional_assignment:
+    with is_lui | is_ori:
+        alu_src |= 2
+    with (is_addi | is_lw | is_sw ):
+        alu_src |= 1
+    with pyrtl.otherwise:
+        alu_src |= 0
+
+with pyrtl.conditional_assignment:
+    with (is_rtype | is_addi | is_lui | is_ori | is_lw):
+        reg_write |= 1
+    with pyrtl.otherwise:
+        reg_write |= 0
 
 
 ## WRITE REGISTER mux
@@ -84,7 +122,7 @@ rt_val = rf[rt]
 # the register file
 # Hint: Think about ALU inputs for instructions that use immediate values 
 alu_a = rs_val
-alu_b = pyrtl.mux(alu_src, rt_val, imm_se, imm_ze)
+alu_b = pyrtl.mux(alu_src, rt_val, imm_se, imm_ze, pyrtl.Const(0))
 
 ## FIND ALU OUTPUT
 # find what the ALU outputs are for the following instructions:
@@ -100,7 +138,7 @@ with pyrtl.conditional_assignment:
     with alu_op == 1:
         alu_out |= alu_a & alu_b
     with alu_op == 2:
-        alu_out |= alu_b << 16 
+        alu_out |= pyrtl.shift_left_logical(alu_b, 16)       
     with alu_op == 3:
         alu_out |= alu_a | alu_b  
     with alu_op == 4:
@@ -202,11 +240,11 @@ if __name__ == '__main__':
     })
 
     # Run for an arbitrarily large number of cycles.
-    for cycle in range(500):
+    for cycle in range(10):
         sim.step({})
 
     # Use render_trace() to debug if your code doesn't work.
-    # sim_trace.render_trace()
+    sim_trace.render_trace()
 
     # You can also print out the register file or memory like so if you want to debug:
     # print(sim.inspect_mem(d_mem))
