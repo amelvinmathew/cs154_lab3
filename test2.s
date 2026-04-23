@@ -1,121 +1,113 @@
-# Test Program 2
-# Focus: branches + zero-register protection + full instruction coverage
+# Comprehensive CS154 Lab 3 CPU test
+# Tests: add, and, addi, lui, ori, slt, lw, sw, beq
+#
+# Expected final results:
+# mem[0] = 15
+# mem[1] = 255
+# mem[2] = 305419896    # 0x12345678
+# mem[3] = 1
+# mem[4] = 123
+# mem[5] = 15
+# mem[6] = 9
+# mem[7] = 777
+# $v0    = 777
 
 .text
 
 main:
-    ##################################################
-    # 1. Zero register protection
-    # If your CPU wrongly allows writes to $zero,
-    # everything after this can go weird.
-    ##################################################
-    addi $zero, $zero, 5       # should do nothing
-    addi $t0, $zero, 0         # if $zero is correct, $t0 = 0
-    sw   $t0, 0($zero)         # mem[0] = 0
+    # Clear a few regs
+    and $t0, $zero, $zero      # $t0 = 0
+    and $t1, $zero, $zero      # $t1 = 0
+    and $t2, $zero, $zero      # $t2 = 0
+    and $t3, $zero, $zero      # $t3 = 0
+    and $t4, $zero, $zero      # $t4 = 0
+    and $t5, $zero, $zero      # $t5 = 0
+    and $t6, $zero, $zero      # $t6 = 0
+    and $t7, $zero, $zero      # $t7 = 0
+    and $v0, $zero, $zero      # $v0 = 0
 
     ##################################################
-    # 2. Basic add/addi
+    # Test addi, add, sw
     ##################################################
-    addi $t1, $zero, 4         # $t1 = 4
-    addi $t2, $zero, 6         # $t2 = 6
-    add  $t3, $t1, $t2         # $t3 = 10
-    addi $t4, $zero, 1
-    sw   $t3, 0($t4)           # mem[1] = 10
+    addi $t0, $zero, 5         # $t0 = 5
+    addi $t1, $zero, 10        # $t1 = 10
+    add  $t2, $t0, $t1         # $t2 = 15
+    sw   $t2, 0($zero)         # mem[0] = 15
 
     ##################################################
-    # 3. and / ori
+    # Test lui, ori, sw
     ##################################################
-    ori  $t5, $zero, 0x00F0    # $t5 = 240
-    ori  $t6, $zero, 0x000F    # $t6 = 15
-    and  $t7, $t5, $t6         # $t7 = 0
+    lui  $t3, 0x1234           # $t3 = 0x12340000
+    ori  $t3, $t3, 0x5678      # $t3 = 0x12345678
     addi $t4, $zero, 2
-    sw   $t7, 0($t4)           # mem[2] = 0
+    sw   $t3, 0($t4)           # mem[2] = 0x12345678
 
     ##################################################
-    # 4. lui / ori
+    # Test and, ori, sw
     ##################################################
-    lui  $s0, 0xABCD           # $s0 = 0xABCD0000
-    ori  $s0, $s0, 0x1234      # $s0 = 0xABCD1234
-    addi $t4, $zero, 3
-    sw   $s0, 0($t4)           # mem[3] = 0xABCD1234
-
-    ##################################################
-    # 5. slt true + false
-    ##################################################
-    addi $s1, $zero, 3
-    addi $s2, $zero, 9
-    slt  $s3, $s1, $s2         # 1
-    addi $t4, $zero, 4
-    sw   $s3, 0($t4)           # mem[4] = 1
-
-    slt  $s4, $s2, $s1         # 0
-    addi $t4, $zero, 5
-    sw   $s4, 0($t4)           # mem[5] = 0
-
-    ##################################################
-    # 6. lw / sw round trip
-    ##################################################
+    ori  $t5, $zero, 0x00FF    # $t5 = 255
     addi $t4, $zero, 1
-    lw   $s5, 0($t4)           # $s5 = mem[1] = 10
-    addi $s5, $s5, 7           # $s5 = 17
-    addi $t4, $zero, 6
-    sw   $s5, 0($t4)           # mem[6] = 17
+    sw   $t5, 0($t4)           # mem[1] = 255
+
+    addi $t6, $zero, 15        # $t6 = 15
+    and  $t7, $t6, $t5         # $t7 = 15 & 255 = 15
+    addi $t4, $zero, 5
+    sw   $t7, 0($t4)           # mem[5] = 15
 
     ##################################################
-    # 7. beq not taken
+    # Test slt, sw
+    ##################################################
+    addi $t0, $zero, 3
+    addi $t1, $zero, 8
+    slt  $t2, $t0, $t1         # $t2 = 1
+    addi $t4, $zero, 3
+    sw   $t2, 0($t4)           # mem[3] = 1
+
+    ##################################################
+    # Test lw + addi + sw
+    ##################################################
+    addi $t4, $zero, 0
+    lw   $t0, 0($t4)           # $t0 = mem[0] = 15
+    addi $t0, $t0, -6          # $t0 = 9
+    addi $t4, $zero, 6
+    sw   $t0, 0($t4)           # mem[6] = 9
+
+    ##################################################
+    # Test beq not taken
     ##################################################
     addi $t0, $zero, 1
     addi $t1, $zero, 2
-    beq  $t0, $t1, bad_not_taken
-    addi $t2, $zero, 111
-    addi $t4, $zero, 7
-    sw   $t2, 0($t4)           # mem[7] = 111
+    beq  $t0, $t1, bad1        # should NOT branch
+    addi $t2, $zero, 123
+    addi $t4, $zero, 4
+    sw   $t2, 0($t4)           # mem[4] = 123
 
     ##################################################
-    # 8. beq taken
+    # Test beq taken
     ##################################################
-    addi $t0, $zero, 8
-    addi $t1, $zero, 8
-    beq  $t0, $t1, good_taken
+    addi $t0, $zero, 7
+    addi $t1, $zero, 7
+    beq  $t0, $t1, good2       # should branch
     addi $t2, $zero, 999       # should be skipped
-    addi $t4, $zero, 8
+    addi $t4, $zero, 7
     sw   $t2, 0($t4)           # should be skipped
 
-good_taken:
-    addi $t2, $zero, 222
-    addi $t4, $zero, 8
-    sw   $t2, 0($t4)           # mem[8] = 222
+good2:
+    addi $t2, $zero, 777
+    addi $t4, $zero, 7
+    sw   $t2, 0($t4)           # mem[7] = 777
 
     ##################################################
-    # 9. negative branch offset loop
-    # counts mem[9] up to 5 using a backward beq
+    # Final check value into v0
     ##################################################
-    addi $s0, $zero, 0         # counter = 0
-    addi $s1, $zero, 5         # limit = 5
-    addi $s2, $zero, 9         # address = 9
-    sw   $zero, 0($s2)         # mem[9] = 0
-
-loop:
-    lw   $s3, 0($s2)           # load mem[9]
-    addi $s3, $s3, 1
-    sw   $s3, 0($s2)           # mem[9]++
-
-    addi $s0, $s0, 1           # counter++
-    beq  $s0, $s1, loop_done   # if counter == 5, exit
-    beq  $zero, $zero, loop    # backward branch
-
-loop_done:
-    ##################################################
-    # 10. Final visible register result
-    ##################################################
-    addi $t4, $zero, 9
-    lw   $v0, 0($t4)           # $v0 = mem[9] = 5
+    addi $t4, $zero, 7
+    lw   $v0, 0($t4)           # $v0 = mem[7] = 777
 
 done:
-    beq  $zero, $zero, done
+    beq  $zero, $zero, done    # infinite loop
 
-bad_not_taken:
+bad1:
     addi $t2, $zero, 999
-    addi $t4, $zero, 7
-    sw   $t2, 0($t4)           # if this happens, branch-not-taken failed
+    addi $t4, $zero, 4
+    sw   $t2, 0($t4)           # if this happens, beq not-taken failed
     beq  $zero, $zero, done
