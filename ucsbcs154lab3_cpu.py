@@ -162,7 +162,7 @@ with pyrtl.conditional_assignment:
 wb_data = pyrtl.mux(mem_to_reg, alu_out, d_mem[alu_out])
 
 with pyrtl.conditional_assignment:
-    with reg_write:
+    with reg_write & (wr_reg != 0):
         rf[wr_reg] |= wb_data
 
 ## PC UPDATE
