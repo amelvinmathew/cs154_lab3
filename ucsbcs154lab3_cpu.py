@@ -254,4 +254,38 @@ if __name__ == '__main__':
     # Perform some sanity checks to see if your program worked correctly
     assert(sim.inspect_mem(d_mem)[0] == 10)
     assert(sim.inspect_mem(rf)[8] == 10)    # $v0 = rf[8]
+
+    #test 2
+    mem = sim.inspect_mem(d_mem)
+    regs = sim.inspect_mem(rf)
+
+    assert mem[0] == 15
+    assert mem[1] == 255
+    assert mem[2] == 0x12345678
+    assert mem[3] == 1
+    assert mem[4] == 123
+    assert mem[5] == 15
+    assert mem[6] == 9
+    assert mem[7] == 777
+
+    assert regs[2] == 777 
+
+    #test 3
+    mem = sim.inspect_mem(d_mem)
+    regs = sim.inspect_mem(rf)
+
+    assert mem[0] == 0
+    assert mem[1] == 10
+    assert mem[2] == 0
+    assert mem[3] == 0xABCD1234
+    assert mem[4] == 1
+    assert mem[5] == 0
+    assert mem[6] == 17
+    assert mem[7] == 111
+    assert mem[8] == 222
+    assert mem[9] == 5
+
+    assert regs[2] == 5     # $v0
+    assert regs.get(0, 0) == 0   # $zero
+
     print('Passed!')
